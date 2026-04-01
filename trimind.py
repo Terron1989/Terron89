@@ -1,6 +1,17 @@
-import requests, os
+import requests, os, json, datetime
 
 GROQ_KEY = os.environ.get("GROQ_KEY")
+HISTORY_FILE = os.path.expanduser("~/Terron89/chat_history.json")
+
+def load_history():
+    if os.path.exists(HISTORY_FILE):
+        with open(HISTORY_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+def save_history(history):
+    with open(HISTORY_FILE, "w") as f:
+        json.dump(history, f, indent=2)
 
 def ask_ai(question, personality):
     prompts = {
@@ -24,25 +35,44 @@ def ask_ai(question, personality):
     except:
         return str(r.json())
 
-def conference_room(question):
+def conference_room(question, history):
     print("\n--- CONFERENCE ROOM ---\n")
     answers = []
     for ai in ["Claude", "ChatGPT", "Gemini"]:
         print(f"[{ai}] thinking...")
         ans = ask_ai(question, ai)
         print(f"\n[{ai}]: {ans}\n")
-        answers.append(ans)
-    print("\n--- TRIMIND FINAL ANSWER ---\n")
-    summary = ask_ai(f"Summarize these 3 answers into one final answer:\n1. {answers[0]}\n2. {answers[1]}\n3. {answers[2]}", "Claude")
-    print(f"[Trimind]: {summary}")
+        answers.append({"ai": ai, "answer": ans})
+    summary = ask_ai(f"Summarize these 3 answers into one final answer:\n1. {answers[0]['answer']}\n2. {answers[1]['answer']}\n3. {answers[2]['answer']}", "Claude")
+    print(f"\n--- TRIMIND FINAL ANSWER ---\n[Trimind]: {summary}")
+    history.append({
+        "time": str(datetime.datetime.now()),
+        "mode": "conference",
+        "question": question,
+        "answers": answers,
+        "final": summary
+    })
+    save_history(history)
+
+history = load_history()
 
 while True:
-    print("\n1. Ask one AI\n2. Conference room\n3. Exit")
+    print("\n1. Ask one AI\n2. Conference room\n3. View history\n4. Exit")
     choice = input("\nChoice: ")
-    if choice == "3":
+    if choice == "4":
         break
-    question = input("Your question: ")
-    if choice == "1":
-        print("\n[AI]: " + ask_ai(question, "Claude"))
-    elif choice == "2":
-        conference_room(question)
+    elif choice == "3":
+        if not history:
+            print("No history yet.")
+        else:
+            for i, h in enumerate(history[-5:]):
+                print(f"\n[{h['time']}] Q: {h['question']}")
+    elif choice in ["1", "2"]:
+        question = input("Your question: ")
+        if choice == "1":
+            ans = ask_ai(question, "Claude")
+            print("\n[AI]: " + ans)
+            history.append({"time": str(datetime.datetime.now()), "mode": "single", "question": question, "answer": ans})
+            save_history(history)
+        elif choice == "2":
+            conference_room(question, history)
