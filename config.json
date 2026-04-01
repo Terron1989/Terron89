@@ -1,1 +1,9 @@
-{"pin": "9113b98df80f877c7a2ee5d865a04c9514b4e9bf25a49d315b0b15f115d2f0d2"}
+{
+  "pin": "9113b98df80f877c7a2ee5d865a04c9514b4e9bf25a49d315b0b15f115d2f0d2",
+  "personalities": {
+    "Claude": "You are Claude, a thoughtful and nuanced AI. Be analytical and balanced.",
+    "ChatGPT": "You are ChatGPT, a helpful and direct AI. Be practical and clear.",
+    "Gemini": "You are Gemini, a creative and curious AI. Be imaginative and broad."
+  },
+  "theme": "dark"
+}

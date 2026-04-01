@@ -8,11 +8,19 @@ def load_config():
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "r") as f:
             return json.load(f)
-    return {"pin": None}
+    return {
+        "pin": None,
+        "personalities": {
+            "Claude": "You are Claude, a thoughtful and nuanced AI. Be analytical and balanced.",
+            "ChatGPT": "You are ChatGPT, a helpful and direct AI. Be practical and clear.",
+            "Gemini": "You are Gemini, a creative and curious AI. Be imaginative and broad."
+        },
+        "theme": "dark"
+    }
 
 def save_config(config):
     with open(CONFIG_FILE, "w") as f:
-        json.dump(config, f)
+        json.dump(config, f, indent=2)
 
 def hash_pin(pin):
     return hashlib.sha256(pin.encode()).hexdigest()
@@ -46,12 +54,8 @@ def save_history(history):
     with open(HISTORY_FILE, "w") as f:
         json.dump(history, f, indent=2)
 
-def ask_ai(question, personality):
-    prompts = {
-        "Claude": "You are Claude, a thoughtful and nuanced AI. Be analytical and balanced.",
-        "ChatGPT": "You are ChatGPT, a helpful and direct AI. Be practical and clear.",
-        "Gemini": "You are Gemini, a creative and curious AI. Be imaginative and broad."
-    }
+def ask_ai(question, personality, config):
+    prompt = config["personalities"].get(personality, "You are a helpful AI.")
     try:
         r = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
@@ -59,7 +63,7 @@ def ask_ai(question, personality):
             json={
                 "model": "llama-3.3-70b-versatile",
                 "messages": [
-                    {"role": "system", "content": prompts[personality]},
+                    {"role": "system", "content": prompt},
                     {"role": "user", "content": question}
                 ]
             }
@@ -68,18 +72,47 @@ def ask_ai(question, personality):
     except:
         return str(r.json())
 
-def conference_room(question, history):
+def conference_room(question, history, config):
     print("\n--- CONFERENCE ROOM ---\n")
     answers = []
     for ai in ["Claude", "ChatGPT", "Gemini"]:
         print(f"[{ai}] thinking...")
-        ans = ask_ai(question, ai)
+        ans = ask_ai(question, ai, config)
         print(f"\n[{ai}]: {ans}\n")
         answers.append({"ai": ai, "answer": ans})
-    summary = ask_ai(f"Summarize these 3 answers into one final answer:\n1. {answers[0]['answer']}\n2. {answers[1]['answer']}\n3. {answers[2]['answer']}", "Claude")
+    summary = ask_ai(f"Summarize these 3 answers into one final answer:\n1. {answers[0]['answer']}\n2. {answers[1]['answer']}\n3. {answers[2]['answer']}", "Claude", config)
     print(f"\n--- TRIMIND FINAL ANSWER ---\n[Trimind]: {summary}")
     history.append({"time": str(datetime.datetime.now()), "mode": "conference", "question": question, "final": summary})
     save_history(history)
+
+def settings_menu(config):
+    while True:
+        print("\n--- SETTINGS ---")
+        print("1. Change PIN")
+        print("2. Edit Claude personality")
+        print("3. Edit ChatGPT personality")
+        print("4. Edit Gemini personality")
+        print("5. View current personalities")
+        print("6. Back")
+        choice = input("\nChoice: ")
+        if choice == "6":
+            break
+        elif choice == "1":
+            pin = input("New PIN: ")
+            config["pin"] = hash_pin(pin)
+            save_config(config)
+            print("PIN changed!")
+        elif choice in ["2", "3", "4"]:
+            ai = ["Claude", "ChatGPT", "Gemini"][int(choice)-2]
+            print(f"\nCurrent: {config['personalities'][ai]}")
+            new = input(f"New personality for {ai}: ")
+            if new:
+                config["personalities"][ai] = new
+                save_config(config)
+                print("Saved!")
+        elif choice == "5":
+            for ai, p in config["personalities"].items():
+                print(f"\n[{ai}]: {p}")
 
 config = load_config()
 if not check_pin(config):
@@ -88,15 +121,17 @@ if not check_pin(config):
 history = load_history()
 
 while True:
-    print("\n1. Ask one AI\n2. Conference room\n3. View history\n4. Change PIN\n5. Exit")
+    print("\n=== TRIMIND-AI ===")
+    print("1. Ask one AI")
+    print("2. Conference room")
+    print("3. View history")
+    print("4. Settings")
+    print("5. Exit")
     choice = input("\nChoice: ")
     if choice == "5":
         break
     elif choice == "4":
-        pin = input("New PIN: ")
-        config["pin"] = hash_pin(pin)
-        save_config(config)
-        print("PIN changed!")
+        settings_menu(config)
     elif choice == "3":
         if not history:
             print("No history yet.")
@@ -106,9 +141,9 @@ while True:
     elif choice in ["1", "2"]:
         question = input("Your question: ")
         if choice == "1":
-            ans = ask_ai(question, "Claude")
+            ans = ask_ai(question, "Claude", config)
             print("\n[AI]: " + ans)
             history.append({"time": str(datetime.datetime.now()), "mode": "single", "question": question, "answer": ans})
             save_history(history)
         elif choice == "2":
-            conference_room(question, history)
+            conference_room(question, history, config)
